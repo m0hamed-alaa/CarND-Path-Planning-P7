@@ -9,6 +9,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "spline.h"
+#include "car.h"
 
 using namespace std;
 
@@ -201,6 +202,13 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
+	// initialization
+
+	double ref_velocity = 0.0;       // in mph
+	double velocity_increment = 0.224;     // velocity increment = 0.224 mph = 0.1 m/s
+	double max_velocity = 49.0;  // maximum acceleration
+	
+
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -227,8 +235,9 @@ int main() {
           	double car_d = j[1]["d"];
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
-
-          	// Previous path data given to the Planner
+						int car_lane = 1;                    // ego car's lane since it starts in the middle lane
+          	
+						// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
           	auto previous_path_y = j[1]["previous_path_y"];
           	// Previous path's end s and d values 
@@ -239,6 +248,61 @@ int main() {
           	auto sensor_fusion = j[1]["sensor_fusion"];
 
           	json msgJson;
+
+						int prev_size = previous_path_x.size();
+
+						if(prev_size > 0)
+						{
+							car_s = end_path_s;
+						}
+
+						// prediction
+						/***
+						 * It estimates the states in which other vehicles are likely to be in the future.
+						 ***/ 
+						bool car_is_front = false;
+						bool car_is_right = false;
+						bool car_is_left = false;
+
+						for(unsigned int i=0 ; i<sensor_fusion.size() ; i++ )
+						{
+							//prepare sensor fusion data for Vehicle object
+
+							vector<double> fusion_data;
+							for(unsigned int j=1; j<sensor_fusion[i].size() ; j++)
+							{
+								fusion_data.push_back(sensor_fusion[i][j]);
+							}
+
+							Car other_car(fusion_data);
+
+							//predict the where the vehicle will be in the future
+
+							double predicted_s = other_car.s;
+							
+							predicted_s += (double)(0.02*prev_size*other_car.speed);
+
+							if(other_car.lane == car_lane)
+							{
+								//if a vehicle in the same lane and in 30 meter range
+								car_is_front |= (predicted_s > car_s) && (predicted_s - car_s < 30);
+							}
+
+							else if(other_car.lane - car_lane == 1)
+							{
+								//if a vehicle is on the right lane and in 30 meter range 
+								car_is_right |= fabs(predicted_s - car_s) < 30;
+							}
+
+							else if(other_car.lane - car_lane == -1 )
+							{
+								//if a vehicle is on the left lane and in 30 meter range
+								car_is_left |= fabs(predicted_s - car_s) < 30;
+							}
+
+						}
+
+						
 
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
