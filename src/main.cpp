@@ -229,16 +229,15 @@ int main() {
           	double car_d = j[1]["d"];
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
-						int car_lane = 1;                    // ego car's lane since it starts in the middle lane
-
-							// initialization
-
-						double ref_velocity = 0.0;       // in mph
-						double velocity_increment = 0.224;     // velocity increment = 0.224 mph = 0.1 m/s
-						double max_velocity = 49.0;  // maximum acceleration
-						
+			
+			// initialization
+			int car_lane = 1;				 	// ego car's lane since it starts in the middle lane
+			double ref_velocity = 0.0;       	// in mph
+			double velocity_increment = 0.224;  // velocity increment = 0.224 mph = 0.1 m/s
+			double max_velocity = 49.0;  		// maximum acceleration
+			
           	
-						// Previous path data given to the Planner
+			// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
           	auto previous_path_y = j[1]["previous_path_y"];
           	// Previous path's end s and d values 
@@ -250,104 +249,217 @@ int main() {
 
           	json msgJson;
 
-						int prev_size = previous_path_x.size();
+			int prev_size = previous_path_x.size();
 
-						if(prev_size > 0)
-						{
-							car_s = end_path_s;
-						}
+			if(prev_size > 0)
+			{
+				car_s = end_path_s;
+			}
 
-						// prediction
-						/***
-						 * It estimates the states in which other vehicles are likely to be in the future.
-						 ***/ 
-						bool car_is_front = false;
-						bool car_is_right = false;
-						bool car_is_left = false;
+			// prediction
+			/***
+			 * It estimates the states in which other vehicles are likely to be in the future.
+			 ***/ 
+			bool car_is_front = false;
+			bool car_is_right = false;
+			bool car_is_left = false;
 
-						for(unsigned int i=0 ; i<sensor_fusion.size() ; i++ )
-						{
-							//prepare sensor fusion data for Vehicle object
+			for(unsigned int i=0 ; i<sensor_fusion.size() ; i++ )
+			{
+				//prepare sensor fusion data for Vehicle object
 
-							vector<double> fusion_data;
-							for(unsigned int j=1; j<sensor_fusion[i].size() ; j++)
-							{
-								fusion_data.push_back(sensor_fusion[i][j]);
-							}
+				vector<double> fusion_data;
+				for(unsigned int j=1; j<sensor_fusion[i].size() ; j++)
+				{
+					fusion_data.push_back(sensor_fusion[i][j]);
+				}
 
-							Car other_car(fusion_data);
+				Car other_car(fusion_data);
 
-							//predict the where the vehicle will be in the future
+				//predict the where the vehicle will be in the future
 
-							double predicted_s = other_car.s;
-							
-							predicted_s += (double)(0.02*prev_size*other_car.speed);
+				double predicted_s = other_car.s;
+				
+				predicted_s += (double)(0.02*prev_size*other_car.speed);
 
-							if(other_car.lane == car_lane)
-							{
-								//if a vehicle in the same lane and in 30 meter range
-								car_is_front |= (predicted_s > car_s) && (predicted_s - car_s < 30);
-							}
+				if(other_car.lane == car_lane)
+				{
+					//if a vehicle in the same lane and in 30 meter range
+					car_is_front |= (predicted_s > car_s) && (predicted_s - car_s < 30);
+				}
 
-							else if(other_car.lane - car_lane == 1)
-							{
-								//if a vehicle is on the right lane and in 30 meter range 
-								car_is_right |= fabs(predicted_s - car_s) < 30;
-							}
+				else if(other_car.lane - car_lane == 1)
+				{
+					//if a vehicle is on the right lane and in 30 meter range 
+					car_is_right |= fabs(predicted_s - car_s) < 30;
+				}
 
-							else if(other_car.lane - car_lane == -1 )
-							{
-								//if a vehicle is on the left lane and in 30 meter range
-								car_is_left |= fabs(predicted_s - car_s) < 30;
-							}
+				else if(other_car.lane - car_lane == -1 )
+				{
+					//if a vehicle is on the left lane and in 30 meter range
+					car_is_left |= fabs(predicted_s - car_s) < 30;
+				}
 
-						}
+			}
 
-						//Behavioral planning
-						/***
-						 * It determines what maneuver the car should take at anytime.
-						 ***/
+			//Behavioral planning
+			/***
+			 * It determines what maneuver the car should take at anytime.
+			 ***/
 
-						if(car_is_front)
-						{
-							if( (car_lane >0) && (!car_is_left) )
-							{
-								car_lane--;
-							}
+			if(car_is_front)
+			{
+				if( (car_lane >0) && (!car_is_left) )
+				{
+					car_lane--;
+				}
 
-							else if( (car_lane !=2) && (!car_is_right) )
-							{
-								car_lane++;
-							}
+				else if( (car_lane !=2) && (!car_is_right) )
+				{
+					car_lane++;
+				}
 
-							else
-							{
-								ref_velocity -= velocity_increment;
-							}
-						}
+				else
+				{
+					ref_velocity -= velocity_increment;
+				}
+			}
 
-						else if(ref_velocity < max_velocity)
-						{
-							ref_velocity += velocity_increment;
-						}
-						
-						
+			else if(ref_velocity < max_velocity)
+			{
+				ref_velocity += velocity_increment;
+			}
 
-						
+			//Trajectory planning
+			/***
+			 * Based on the suggested maneuver , the trajectory planning determines the best
+			 * trajectory to realize this maneuver.
+			 ***/
+			
+			vector<double> ptsx;
+			vector<double> ptsy;
+
+			//reference x,y and yaw;
+
+			double ref_x = car_x;
+			double ref_y = car_y;
+			double ref_yaw = deg2rad(car_yaw);
+
+			//if previous path is almost empty , use the car state as starting point
+
+			if(prev_size < 2)
+			{
+				//use two points that makes path tangent to the car
+
+				double prev_car_x = car_x - cos(car_yaw);
+				double prev_car_y = car_y - sin(car_yaw);
+
+				ptsx.push_back(prev_car_x);
+				ptsx.push_back(car_x);
+
+				ptsx.push_back(prev_car_y);
+				ptsy.push_back(car_y);
+			}
+
+			else
+			{
+				//redefine the reference point to the last point of the previous path
+
+				ref_x = previous_path_x[prev_size-1];
+				ref_y = previous_path_y[prev_size-1];
+
+				double prev_ref_x = previous_path_x[prev_size-2];
+				double prev_ref_y = previous_path_y[prev_size-2];
+
+				ref_yaw = atan2(ref_y - prev_ref_y , ref_x - prev_ref_y);
+
+				ptsx.push_back(prev_ref_x);
+				ptsx.push_back(ref_x);
+
+				ptsy.push_back(prev_ref_y);
+				ptsy.push_back(ref_y);
+			}	
+
+			//select 3 target waypoints in the future time horizon
+
+			vector<double> wp0 = getXY(car_s+30 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
+			vector<double> wp1 = getXY(car_s+60 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
+			vector<double> wp2 = getXY(car_s+90 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
+
+			ptsx.push_back(wp0[0]);
+			ptsx.push_back(wp1[0]);
+			ptsx.push_back(wp2[0]);
+
+			ptsy.push_back(wp0[1]);
+			ptsy.push_back(wp1[1]);
+			ptsy.push_back(wp2[1]);
+
+			//transforming coordinates into local car coordinates
+
+			for(unsigned int i=0; i<ptsx.size() ; i++)
+			{
+				double shift_x = ptsx[i] - ref_x;
+				double shift_y = ptsy[i] - ref_y;
+
+				ptsx[i] = shift_x * cos(-ref_yaw) - shift_y * sin(-ref_yaw);
+				ptsy[i] = shift_x * sin(-ref_yaw) + shift_y * cos(-ref_yaw);
+
+			}
+			
+			//define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
+			
+			//instantiate a spline
+
+			tk::spline s;
+			s.set_points(ptsx,ptsy);
 
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
 
+			//to have a smooth transition , previous path points are add.
 
-          	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-          	double dist_inc = 0.25;
-						for(int i = 0; i < 50; i++)
-						{
-									next_x_vals.push_back(car_x+(dist_inc*i)*cos(deg2rad(car_yaw)));
-									next_y_vals.push_back(car_y+(dist_inc*i)*sin(deg2rad(car_yaw)));
-						}
+			for(unsigned int i=0; i<prev_size ; i++)
+			{
+				next_x_vals.push_back(previous_path_x[i]);
+				next_y_vals.push_back(previous_path_y[i]);
+			}
 
-						msgJson["next_x"] = next_x_vals;
+			//interpolate the path points to have smooth trajectory
+
+			double target_x = 30.0;          // 30 meter ahead
+			double target_y = s(target_x);
+			double target_distance = distance(0,0,target_x,target_y);
+
+			double x_add_on = 0;
+
+			for(unsigned int i=1 ; i<(50 - prev_size) ; i++)
+			{
+				int N = target_distance/(0.02*(ref_velocity/2.24));
+				double x_point = x_add_on + target_x/N;
+				double y_point = s(x_point);
+
+				x_add_on = x_point;
+
+				double x_transformed = x_point;
+				double y_transformed = y_point;
+
+				//restore it back into the map coordinates
+
+				x_point = x_transformed * cos(ref_yaw) - y_transformed * sin(ref_yaw);
+				y_point = x_transformed * sin(ref_yaw) + y_transformed * cos(ref_yaw);
+
+				x_point += x_transformed;
+				y_point += y_transformed;
+
+				next_x_vals.push_back(x_point);
+				next_y_vals.push_back(y_point);
+
+
+			} 
+
+
+
+			msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
           	auto msg = "42[\"control\","+ msgJson.dump()+"]";
