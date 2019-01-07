@@ -202,12 +202,6 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
-	// initialization
-
-	double ref_velocity = 0.0;       // in mph
-	double velocity_increment = 0.224;     // velocity increment = 0.224 mph = 0.1 m/s
-	double max_velocity = 49.0;  // maximum acceleration
-	
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -236,6 +230,13 @@ int main() {
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
 						int car_lane = 1;                    // ego car's lane since it starts in the middle lane
+
+							// initialization
+
+						double ref_velocity = 0.0;       // in mph
+						double velocity_increment = 0.224;     // velocity increment = 0.224 mph = 0.1 m/s
+						double max_velocity = 49.0;  // maximum acceleration
+						
           	
 						// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
@@ -301,6 +302,36 @@ int main() {
 							}
 
 						}
+
+						//Behavioral planning
+						/***
+						 * It determines what maneuver the car should take at anytime.
+						 ***/
+
+						if(car_is_front)
+						{
+							if( (car_lane >0) && (!car_is_left) )
+							{
+								car_lane--;
+							}
+
+							else if( (car_lane !=2) && (!car_is_right) )
+							{
+								car_lane++;
+							}
+
+							else
+							{
+								ref_velocity -= velocity_increment;
+							}
+						}
+
+						else if(ref_velocity < max_velocity)
+						{
+							ref_velocity += velocity_increment;
+						}
+						
+						
 
 						
 
