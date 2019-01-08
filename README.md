@@ -229,7 +229,7 @@ else
 }	
 
 ```
-Now we need to add 3 future target points to ptsx, ptsy vectors so that each vector has 5 points in total
+Now we need to add 3 future target points to ptsx, ptsy vectors so that each vector has 5 points in total.
 
 ```
 vector<double> next_wp0 = getXY(car_s+30 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
@@ -312,6 +312,6 @@ msgJson["next_y"] = next_y_vals;
 
 ## Tips
 
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
+A really helpful resource for doing this project and creating smooth trajectories was using [spline](http://kluge.in-chemnitz.de/opensource/spline/), the spline function is in a single hearder file is really easy to use.
 
 ---
