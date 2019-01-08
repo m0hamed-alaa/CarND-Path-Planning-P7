@@ -8,6 +8,7 @@ class Car
 
     public :
 
+        int id;
         int lane;
         double x;
         double y;
