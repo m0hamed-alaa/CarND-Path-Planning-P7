@@ -1,3 +1,0 @@
-/home/mohamed/Udacity/Term2/projects/CarND-Path-Planning-P2/build/CMakeFiles/rebuild_cache.dir
-/home/mohamed/Udacity/Term2/projects/CarND-Path-Planning-P2/build/CMakeFiles/path_planning.dir
-/home/mohamed/Udacity/Term2/projects/CarND-Path-Planning-P2/build/CMakeFiles/edit_cache.dir
