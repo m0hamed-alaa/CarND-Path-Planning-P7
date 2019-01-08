@@ -165,6 +165,8 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
+
+
 int main() {
   uWS::Hub h;
 
@@ -201,15 +203,23 @@ int main() {
   	map_waypoints_dx.push_back(d_x);
   	map_waypoints_dy.push_back(d_y);
   }
+	// initialization
+  int car_lane = 1;				 	// ego car's lane since it starts in the middle lane
+  double ref_velocity = 0.0;       	// in mph
+  double velocity_increment = 0.5;  // velocity increment = 0.224 mph = 0.1 m/s
+  double max_velocity = 49.0;  		// maximum acceleration
 
-
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&car_lane , &ref_velocity , &velocity_increment , &max_velocity , &map_waypoints_x,&map_waypoints_y,
+  &map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     //auto sdata = string(data).substr(0, length);
     //cout << sdata << endl;
+
+	
+	
     if (length && length > 2 && data[0] == '4' && data[1] == '2') {
 
       auto s = hasData(data);
@@ -229,13 +239,7 @@ int main() {
           	double car_d = j[1]["d"];
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
-			
-			// initialization
-			int car_lane = 1;				 	// ego car's lane since it starts in the middle lane
-			double ref_velocity = 0.0;       	// in mph
-			double velocity_increment = 0.224;  // velocity increment = 0.224 mph = 0.1 m/s
-			double max_velocity = 49.0;  		// maximum acceleration
-			
+					
           	
 			// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
@@ -246,8 +250,6 @@ int main() {
 
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
           	auto sensor_fusion = j[1]["sensor_fusion"];
-
-          	json msgJson;
 
 			int prev_size = previous_path_x.size();
 
@@ -306,29 +308,39 @@ int main() {
 			/***
 			 * It determines what maneuver the car should take at anytime.
 			 ***/
-
+			
+			cout<<"car is front flag : "<<car_is_front<<endl;
 			if(car_is_front)
 			{
 				if( (car_lane >0) && (!car_is_left) )
 				{
 					car_lane--;
+					//cout<<"\nturn left\n";
 				}
 
 				else if( (car_lane !=2) && (!car_is_right) )
 				{
 					car_lane++;
+					//cout<<"\nturn right\n";
 				}
 
 				else
 				{
-					ref_velocity -= velocity_increment;
+					ref_velocity -= 2*velocity_increment;
+					//cout<<"\ndecelerate\n";
 				}
 			}
 
 			else if(ref_velocity < max_velocity)
 			{
+				
 				ref_velocity += velocity_increment;
+				//cout<<"\naccelerate\n";
+				
 			}
+
+			//cout<<"ref velocity : "<<ref_velocity<<endl;
+			//cout<<"current lane : "<<car_lane<<endl;
 
 			//Trajectory planning
 			/***
@@ -357,7 +369,7 @@ int main() {
 				ptsx.push_back(prev_car_x);
 				ptsx.push_back(car_x);
 
-				ptsx.push_back(prev_car_y);
+				ptsy.push_back(prev_car_y);
 				ptsy.push_back(car_y);
 			}
 
@@ -371,7 +383,7 @@ int main() {
 				double prev_ref_x = previous_path_x[prev_size-2];
 				double prev_ref_y = previous_path_y[prev_size-2];
 
-				ref_yaw = atan2(ref_y - prev_ref_y , ref_x - prev_ref_y);
+				ref_yaw = atan2(ref_y - prev_ref_y , ref_x - prev_ref_x);
 
 				ptsx.push_back(prev_ref_x);
 				ptsx.push_back(ref_x);
@@ -382,36 +394,59 @@ int main() {
 
 			//select 3 target waypoints in the future time horizon
 
-			vector<double> wp0 = getXY(car_s+30 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
-			vector<double> wp1 = getXY(car_s+60 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
-			vector<double> wp2 = getXY(car_s+90 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
+			vector<double> next_wp0 = getXY(car_s+30 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
+			vector<double> next_wp1 = getXY(car_s+60 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
+			vector<double> next_wp2 = getXY(car_s+90 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
 
-			ptsx.push_back(wp0[0]);
-			ptsx.push_back(wp1[0]);
-			ptsx.push_back(wp2[0]);
+			ptsx.push_back(next_wp0[0]);
+			ptsx.push_back(next_wp1[0]);
+			ptsx.push_back(next_wp2[0]);
 
-			ptsy.push_back(wp0[1]);
-			ptsy.push_back(wp1[1]);
-			ptsy.push_back(wp2[1]);
+			ptsy.push_back(next_wp0[1]);
+			ptsy.push_back(next_wp1[1]);
+			ptsy.push_back(next_wp2[1]);
 
-			//transforming coordinates into local car coordinates
+			/*
+			cout<<"previous size"<<prev_size<<endl;
+			cout<<"ptsx   ptsy"<<endl;
+			for(unsigned int i=0; i<ptsx.size();i++)
+			{
+				
+				cout<<ptsx[i]<<"  "<<ptsy[i]<<endl;
+			}
+			cout<<endl;
+			*/
+
+			//transforming coordinates into local car coordinates starting from reference point
 
 			for(unsigned int i=0; i<ptsx.size() ; i++)
-			{
-				double shift_x = ptsx[i] - ref_x;
-				double shift_y = ptsy[i] - ref_y;
-
-				ptsx[i] = shift_x * cos(-ref_yaw) - shift_y * sin(-ref_yaw);
-				ptsy[i] = shift_x * sin(-ref_yaw) + shift_y * cos(-ref_yaw);
+			{	
+				//shift
+				double x_shifted = ptsx[i] - ref_x;
+				double y_shifted = ptsy[i] - ref_y;
+				
+				//rotate
+				ptsx[i] = x_shifted * cos(-ref_yaw) - y_shifted * sin(0-ref_yaw);
+				ptsy[i] = x_shifted * sin(-ref_yaw) + y_shifted * cos(0-ref_yaw);
 
 			}
+
+			/*
+			cout<<"ptsx   ptsy  after transformation"<<endl;
+			for(unsigned int i=0; i<ptsx.size();i++)
+			{
+				
+				cout<<ptsx[i]<<"  "<<ptsy[i]<<endl;
+			}
+			cout<<endl;
+			*/
 			
 			//define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
 			
 			//instantiate a spline
 
-			tk::spline s;
-			s.set_points(ptsx,ptsy);
+			tk::spline trajectory;
+			trajectory.set_points(ptsx,ptsy);
 
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
@@ -424,32 +459,47 @@ int main() {
 				next_y_vals.push_back(previous_path_y[i]);
 			}
 
+			/*
+			cout<<"previous path point"<<endl;
+			cout<<"x     y"<<endl;
+			for(unsigned int i=0; i<next_x_vals.size();i++)
+			{
+				
+				cout<<next_x_vals[i]<<"  "<<next_y_vals[i]<<endl;
+			}
+			cout<<"------------------"<<endl;
+			*/
+
 			//interpolate the path points to have smooth trajectory
 
 			double target_x = 30.0;          // 30 meter ahead
-			double target_y = s(target_x);
-			double target_distance = distance(0,0,target_x,target_y);
+			double target_y = trajectory(target_x);
+			double target_distance = sqrt(target_x*target_x + target_y*target_y);
 
 			double x_add_on = 0;
 
-			for(unsigned int i=1 ; i<(50 - prev_size) ; i++)
+			for(unsigned int i=1 ; i<50 - prev_size ; i++)
 			{
-				int N = target_distance/(0.02*(ref_velocity/2.24));
-				double x_point = x_add_on + target_x/N;
-				double y_point = s(x_point);
+				double num_points = target_distance/(0.02*ref_velocity/2.24);
+				double x_point = x_add_on + target_x/num_points;
+				double y_point = trajectory(x_point);
+
+				//cout<<"before transformation : x_point: "<<x_point<<" , "<<"y_point: "<<y_point<<endl;
 
 				x_add_on = x_point;
 
-				double x_transformed = x_point;
-				double y_transformed = y_point;
+				double x_ref = x_point;
+				double y_ref = y_point;
 
 				//restore it back into the map coordinates
 
-				x_point = x_transformed * cos(ref_yaw) - y_transformed * sin(ref_yaw);
-				y_point = x_transformed * sin(ref_yaw) + y_transformed * cos(ref_yaw);
+				x_point = x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw);
+				y_point = x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
 
-				x_point += x_transformed;
-				y_point += y_transformed;
+				x_point += ref_x;
+				y_point += ref_y;
+
+				//cout<<"after transformation : x_point: "<<x_point<<" , "<<"y_point: "<<y_point<<endl;
 
 				next_x_vals.push_back(x_point);
 				next_y_vals.push_back(y_point);
@@ -457,7 +507,19 @@ int main() {
 
 			} 
 
+			cout<<"final next values :"<<endl;
+			for(unsigned int i=0;i<next_x_vals.size();i++)
+			{
+				cout<<"\nx = "<<next_x_vals[i]<<" , "<<"y = "<<next_y_vals[i]<<endl;
+			}
 
+			cout<<"-----------------------------------"<<endl;
+			
+	
+
+			
+			
+			json msgJson;
 
 			msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
