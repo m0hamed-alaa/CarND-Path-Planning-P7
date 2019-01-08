@@ -229,7 +229,7 @@ else
 }	
 
 ```
-Now we need to add 3 future target points to ptsx, ptsy vecotrs so that each vector has 5 points in total
+Now we need to add 3 future target points to ptsx, ptsy vectors so that each vector has 5 points in total
 
 ```
 vector<double> next_wp0 = getXY(car_s+30 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
@@ -263,7 +263,7 @@ for(unsigned int i=0; i<prev_size ; i++)
 }
 
 ```
-Now we need to sample the spline trajectory till the horizon value , in this case 30 m , so that the spacing between points we get make the ego vehicle travel at the desired speed.Remember The spacing between path points determines the speed of the vehicle.we add the new points to the previously added path points to `next_x_vals` and `next_y_vals` vectors to have 50 points in total.
+Now we need to sample the spline trajectory till the horizon value , in this case 30 m , so that the spacing between points we get makes the ego vehicle travel at the desired speed.Remember the spacing between path points determines the speed of the vehicle.we add the new points to the previously added path points to `next_x_vals` and `next_y_vals` vectors to have 50 points in total.
 
 ```
 double target_x = 30.0;                   // 30 meter ahead
