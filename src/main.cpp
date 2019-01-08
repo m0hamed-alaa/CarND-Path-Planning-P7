@@ -268,21 +268,22 @@ int main() {
 
 			for(unsigned int i=0 ; i<sensor_fusion.size() ; i++ )
 			{
-				//prepare sensor fusion data for Vehicle object
+				//prepare sensor fusion data for Car object
 
 				vector<double> fusion_data;
-				for(unsigned int j=1; j<sensor_fusion[i].size() ; j++)
+				for(unsigned int j=0; j<sensor_fusion[i].size() ; j++)
 				{
 					fusion_data.push_back(sensor_fusion[i][j]);
 				}
 
+				
 				Car other_car(fusion_data);
 
 				//predict the where the vehicle will be in the future
 
 				double predicted_s = other_car.s;
 				
-				predicted_s += (double)(0.02*prev_size*other_car.speed);
+				predicted_s += (double)0.02*prev_size*other_car.speed;
 
 				if(other_car.lane == car_lane)
 				{
@@ -309,25 +310,22 @@ int main() {
 			 * It determines what maneuver the car should take at anytime.
 			 ***/
 			
-			cout<<"car is front flag : "<<car_is_front<<endl;
+			
 			if(car_is_front)
 			{
 				if( (car_lane >0) && (!car_is_left) )
 				{
 					car_lane--;
-					//cout<<"\nturn left\n";
 				}
 
 				else if( (car_lane !=2) && (!car_is_right) )
 				{
 					car_lane++;
-					//cout<<"\nturn right\n";
 				}
 
 				else
 				{
 					ref_velocity -= 2*velocity_increment;
-					//cout<<"\ndecelerate\n";
 				}
 			}
 
@@ -335,12 +333,8 @@ int main() {
 			{
 				
 				ref_velocity += velocity_increment;
-				//cout<<"\naccelerate\n";
 				
 			}
-
-			//cout<<"ref velocity : "<<ref_velocity<<endl;
-			//cout<<"current lane : "<<car_lane<<endl;
 
 			//Trajectory planning
 			/***
@@ -394,6 +388,7 @@ int main() {
 
 			//select 3 target waypoints in the future time horizon
 
+			
 			vector<double> next_wp0 = getXY(car_s+30 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
 			vector<double> next_wp1 = getXY(car_s+60 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
 			vector<double> next_wp2 = getXY(car_s+90 , 2+4*car_lane , map_waypoints_s , map_waypoints_x ,map_waypoints_y);
@@ -405,17 +400,6 @@ int main() {
 			ptsy.push_back(next_wp0[1]);
 			ptsy.push_back(next_wp1[1]);
 			ptsy.push_back(next_wp2[1]);
-
-			/*
-			cout<<"previous size"<<prev_size<<endl;
-			cout<<"ptsx   ptsy"<<endl;
-			for(unsigned int i=0; i<ptsx.size();i++)
-			{
-				
-				cout<<ptsx[i]<<"  "<<ptsy[i]<<endl;
-			}
-			cout<<endl;
-			*/
 
 			//transforming coordinates into local car coordinates starting from reference point
 
@@ -431,15 +415,7 @@ int main() {
 
 			}
 
-			/*
-			cout<<"ptsx   ptsy  after transformation"<<endl;
-			for(unsigned int i=0; i<ptsx.size();i++)
-			{
-				
-				cout<<ptsx[i]<<"  "<<ptsy[i]<<endl;
-			}
-			cout<<endl;
-			*/
+			
 			
 			//define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
 			
@@ -459,16 +435,6 @@ int main() {
 				next_y_vals.push_back(previous_path_y[i]);
 			}
 
-			/*
-			cout<<"previous path point"<<endl;
-			cout<<"x     y"<<endl;
-			for(unsigned int i=0; i<next_x_vals.size();i++)
-			{
-				
-				cout<<next_x_vals[i]<<"  "<<next_y_vals[i]<<endl;
-			}
-			cout<<"------------------"<<endl;
-			*/
 
 			//interpolate the path points to have smooth trajectory
 
@@ -484,8 +450,6 @@ int main() {
 				double x_point = x_add_on + target_x/num_points;
 				double y_point = trajectory(x_point);
 
-				//cout<<"before transformation : x_point: "<<x_point<<" , "<<"y_point: "<<y_point<<endl;
-
 				x_add_on = x_point;
 
 				double x_ref = x_point;
@@ -499,7 +463,7 @@ int main() {
 				x_point += ref_x;
 				y_point += ref_y;
 
-				//cout<<"after transformation : x_point: "<<x_point<<" , "<<"y_point: "<<y_point<<endl;
+	
 
 				next_x_vals.push_back(x_point);
 				next_y_vals.push_back(y_point);
